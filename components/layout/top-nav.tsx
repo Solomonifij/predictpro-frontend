@@ -10,7 +10,6 @@ const navItems = [
   { label: "Standings", href: "/standings" },
   { label: "Live", href: "/?filter=live" },
   { label: "News", href: "/news" },
-  { label: "Content", href: "/content" },
   { label: "Premium", href: "/premium" },
 ]
 
