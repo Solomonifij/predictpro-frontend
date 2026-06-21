@@ -16,9 +16,9 @@ const filters: { key: Filter; label: string }[] = [
 ]
 
 function getFilterStatus(fixture: any): Filter {
-  const status = fixture.fixture.status.short
-  if (["1H", "2H", "ET", "HT", "P"].includes(status)) return "live"
-  if (status === "FT" || status === "AET" || status === "PEN") return "finished"
+  const status = fixture.status
+  if (status === "IN_PLAY" || status === "PAUSED") return "live"
+  if (status === "FINISHED") return "finished"
   return "upcoming"
 }
 
@@ -78,9 +78,9 @@ export function MatchesFeed({ groupedFixtures }: MatchesFeedProps) {
       {Object.entries(filteredGrouped).map(([leagueName, fixtures]) => (
         <section key={leagueName}>
           <div className="mb-3 flex items-center gap-2">
-            {fixtures[0]?.league?.logo ? (
+            {fixtures[0]?.competition?.emblem ? (
               <img
-                src={fixtures[0].league.logo}
+                src={fixtures[0].competition.emblem}
                 alt={leagueName}
                 className="h-7 w-7 rounded-md object-contain"
               />
@@ -92,7 +92,7 @@ export function MatchesFeed({ groupedFixtures }: MatchesFeedProps) {
             <div>
               <h2 className="text-sm font-bold leading-tight">{leagueName}</h2>
               <p className="text-xs text-muted-foreground">
-                {fixtures[0]?.league?.country ?? ""}
+                {fixtures[0]?.competition?.area?.name ?? ""}
               </p>
             </div>
           </div>
@@ -106,8 +106,8 @@ export function MatchesFeed({ groupedFixtures }: MatchesFeedProps) {
 
               return (
                 <Link
-                  key={fixture.fixture.id}
-                  href={`/match/${fixture.fixture.id}`}
+                  key={fixture.id}
+                  href={`/match/${fixture.id}`}
                   className="block rounded-xl border border-border bg-card p-4 hover:shadow-md transition-shadow"
                 >
                   <div className="mb-3 flex items-center justify-between">
@@ -134,20 +134,20 @@ export function MatchesFeed({ groupedFixtures }: MatchesFeedProps) {
 
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex flex-1 flex-col items-center gap-1">
-                      <img
-                        src={fixture.teams.home.logo}
-                        alt={fixture.teams.home.name}
-                        className="h-8 w-8 object-contain"
-                      />
+                      {fixture.homeTeam?.crest ? (
+                        <img src={fixture.homeTeam.crest} alt={fixture.homeTeam.name} className="h-8 w-8 object-contain" />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-primary/20" />
+                      )}
                       <span className="text-center text-xs font-medium leading-tight">
-                        {fixture.teams.home.name}
+                        {fixture.homeTeam?.shortName ?? fixture.homeTeam?.name}
                       </span>
                     </div>
 
                     <div className="flex flex-col items-center">
                       {isFinished || isLive ? (
                         <span className="text-lg font-bold">
-                          {fixture.goals.home ?? 0} - {fixture.goals.away ?? 0}
+                          {fixture.score?.fullTime?.home ?? 0} - {fixture.score?.fullTime?.away ?? 0}
                         </span>
                       ) : (
                         <span className="text-sm font-semibold text-muted-foreground">
@@ -157,13 +157,13 @@ export function MatchesFeed({ groupedFixtures }: MatchesFeedProps) {
                     </div>
 
                     <div className="flex flex-1 flex-col items-center gap-1">
-                      <img
-                        src={fixture.teams.away.logo}
-                        alt={fixture.teams.away.name}
-                        className="h-8 w-8 object-contain"
-                      />
+                      {fixture.awayTeam?.crest ? (
+                        <img src={fixture.awayTeam.crest} alt={fixture.awayTeam.name} className="h-8 w-8 object-contain" />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-secondary" />
+                      )}
                       <span className="text-center text-xs font-medium leading-tight">
-                        {fixture.teams.away.name}
+                        {fixture.awayTeam?.shortName ?? fixture.awayTeam?.name}
                       </span>
                     </div>
                   </div>

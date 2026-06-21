@@ -23,7 +23,6 @@ export default async function MatchPage({
 
   if (!fixture) notFound()
 
-  // Fetch AI prediction from OpenAI
   let prediction = {
     homeWin: 45,
     draw: 25,
@@ -31,7 +30,7 @@ export default async function MatchPage({
     confidence: 60,
     predictedScore: [1, 1],
     pick: "home" as const,
-    analysis: "Our AI model is currently processing this match. Please check back shortly for a full prediction breakdown.",
+    analysis: `AI analysis for ${fixture.homeTeam?.name} vs ${fixture.awayTeam?.name}. Our model is processing current form, head-to-head records, and key player availability to generate a full prediction. Check back soon for the complete breakdown.`,
     factors: [
       { label: "Home advantage", value: "Moderate boost", favors: "home" as const },
       { label: "Recent form", value: "Being analyzed", favors: "neutral" as const },
@@ -46,10 +45,10 @@ export default async function MatchPage({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          homeTeam: fixture.teams.home.name,
-          awayTeam: fixture.teams.away.name,
-          league: fixture.league.name,
-          round: fixture.league.round ?? "",
+          homeTeam: fixture.homeTeam?.name,
+          awayTeam: fixture.awayTeam?.name,
+          league: fixture.competition?.name,
+          round: fixture.season?.currentMatchday ?? "",
         }),
       }
     )
@@ -60,42 +59,44 @@ export default async function MatchPage({
     console.error("Failed to fetch AI prediction:", e)
   }
 
+  const status = (() => {
+    const s = fixture.status
+    if (s === "IN_PLAY" || s === "PAUSED") return "live"
+    if (s === "FINISHED") return "finished"
+    return "upcoming"
+  })()
+
   const match = {
-    id: String(fixture.fixture.id),
-    league: fixture.league.name,
-    leagueId: String(fixture.league.id),
-    round: fixture.league.round ?? "",
-    kickoff: fixture.fixture.date,
-    status: (() => {
-      const s = fixture.fixture.status.short
-      if (["1H", "2H", "ET", "HT", "P"].includes(s)) return "live"
-      if (["FT", "AET", "PEN"].includes(s)) return "finished"
-      return "upcoming"
-    })(),
+    id: String(fixture.id),
+    league: fixture.competition?.name ?? "",
+    leagueId: String(fixture.competition?.id ?? ""),
+    round: `Round ${fixture.season?.currentMatchday ?? ""}`,
+    kickoff: fixture.utcDate,
+    status,
     home: {
-      id: String(fixture.teams.home.id),
-      name: fixture.teams.home.name,
-      shortName: fixture.teams.home.name.slice(0, 3).toUpperCase(),
-      logo: fixture.teams.home.logo,
+      id: String(fixture.homeTeam?.id ?? ""),
+      name: fixture.homeTeam?.name ?? "",
+      shortName: fixture.homeTeam?.shortName ?? fixture.homeTeam?.name?.slice(0, 3).toUpperCase() ?? "",
+      logo: fixture.homeTeam?.crest ?? "",
       code: "XX",
       color: "bg-blue-600 text-white",
     },
     away: {
-      id: String(fixture.teams.away.id),
-      name: fixture.teams.away.name,
-      shortName: fixture.teams.away.name.slice(0, 3).toUpperCase(),
-      logo: fixture.teams.away.logo,
+      id: String(fixture.awayTeam?.id ?? ""),
+      name: fixture.awayTeam?.name ?? "",
+      shortName: fixture.awayTeam?.shortName ?? fixture.awayTeam?.name?.slice(0, 3).toUpperCase() ?? "",
+      logo: fixture.awayTeam?.crest ?? "",
       code: "XX",
       color: "bg-gray-600 text-white",
     },
     goals: {
-      home: fixture.goals.home,
-      away: fixture.goals.away,
+      home: fixture.score?.fullTime?.home,
+      away: fixture.score?.fullTime?.away,
     },
     odds: {
-      home: fixture.odds?.[0]?.bookmakers?.[0]?.bets?.[0]?.values?.[0]?.odd ?? 2.0,
-      draw: fixture.odds?.[0]?.bookmakers?.[0]?.bets?.[0]?.values?.[1]?.odd ?? 3.5,
-      away: fixture.odds?.[0]?.bookmakers?.[0]?.bets?.[0]?.values?.[2]?.odd ?? 3.5,
+      home: 2.0,
+      draw: 3.5,
+      away: 3.5,
     },
     prediction: {
       homeWin: prediction.homeWin,

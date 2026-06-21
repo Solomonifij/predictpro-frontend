@@ -8,12 +8,12 @@ import { groupFixturesByLeague, getFixtureStatus } from "@/lib/api"
 
 function SidebarRow({ fixture }: { fixture: any }) {
   const status = getFixtureStatus(fixture)
-  const isLive = ["1H", "2H", "ET", "HT", "P"].includes(fixture.fixture.status.short)
-  const isFinished = ["FT", "AET", "PEN"].includes(fixture.fixture.status.short)
+  const isLive = fixture.status === "IN_PLAY" || fixture.status === "PAUSED"
+  const isFinished = fixture.status === "FINISHED"
 
   return (
     <Link
-      href={`/match/${fixture.fixture.id}`}
+      href={`/match/${fixture.id}`}
       className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-secondary"
     >
       <div className="flex w-10 shrink-0 flex-col items-center">
@@ -21,37 +21,35 @@ function SidebarRow({ fixture }: { fixture: any }) {
           {isLive ? "LIVE" : isFinished ? "FT" : status}
         </span>
         {isLive && (
-          <span className="text-[11px] text-muted-foreground">
-            {fixture.fixture.status.elapsed}'
-          </span>
+          <span className="text-[11px] text-muted-foreground">{fixture.minute}'</span>
         )}
       </div>
 
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-2">
-            <img
-              src={fixture.teams.home.logo}
-              alt={fixture.teams.home.name}
-              className="h-4 w-4 object-contain"
-            />
-            <span className="truncate text-sm">{fixture.teams.home.name}</span>
+            {fixture.homeTeam?.crest ? (
+              <img src={fixture.homeTeam.crest} alt={fixture.homeTeam.name} className="h-4 w-4 object-contain" />
+            ) : (
+              <div className="h-4 w-4 rounded-full bg-primary/20" />
+            )}
+            <span className="truncate text-sm">{fixture.homeTeam?.name}</span>
           </span>
           <span className="text-sm font-semibold tabular-nums text-muted-foreground">
-            {isFinished || isLive ? fixture.goals.home ?? 0 : ""}
+            {isFinished || isLive ? fixture.score?.fullTime?.home ?? 0 : ""}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-2">
-            <img
-              src={fixture.teams.away.logo}
-              alt={fixture.teams.away.name}
-              className="h-4 w-4 object-contain"
-            />
-            <span className="truncate text-sm">{fixture.teams.away.name}</span>
+            {fixture.awayTeam?.crest ? (
+              <img src={fixture.awayTeam.crest} alt={fixture.awayTeam.name} className="h-4 w-4 object-contain" />
+            ) : (
+              <div className="h-4 w-4 rounded-full bg-secondary" />
+            )}
+            <span className="truncate text-sm">{fixture.awayTeam?.name}</span>
           </span>
           <span className="text-sm font-semibold tabular-nums text-muted-foreground">
-            {isFinished || isLive ? fixture.goals.away ?? 0 : ""}
+            {isFinished || isLive ? fixture.score?.fullTime?.away ?? 0 : ""}
           </span>
         </div>
       </div>
@@ -71,12 +69,13 @@ export function SidebarMatchList({ className }: { className?: string }) {
   useEffect(() => {
     async function load() {
       try {
+        const date = new Date().toISOString().split("T")[0]
         const res = await fetch(
-          `https://v3.football.api-sports.io/fixtures?date=${new Date().toISOString().split("T")[0]}`,
-          { headers: { "x-apisports-key": process.env.NEXT_PUBLIC_API_FOOTBALL_KEY! } }
+          `https://api.football-data.org/v4/matches?date=${date}`,
+          { headers: { "X-Auth-Token": process.env.NEXT_PUBLIC_FOOTBALL_DATA_API_KEY! } }
         )
         const data = await res.json()
-        const grouped = groupFixturesByLeague(data.response)
+        const grouped = groupFixturesByLeague(data.matches ?? [])
         setGroupedFixtures(grouped)
         setOpen(Object.fromEntries(Object.keys(grouped).map((k) => [k, true])))
       } catch (e) {
@@ -98,7 +97,7 @@ export function SidebarMatchList({ className }: { className?: string }) {
   return (
     <aside className={cn("rounded-xl border border-border bg-card", className)}>
       <div className="border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold">Today&apos;s matches</h2>
+        <h2 className="text-sm font-semibold">Today's matches</h2>
         <p className="text-xs text-muted-foreground">{today}</p>
       </div>
       <div className="p-2">
@@ -115,19 +114,11 @@ export function SidebarMatchList({ className }: { className?: string }) {
               onClick={() => setOpen((o) => ({ ...o, [leagueName]: !o[leagueName] }))}
               className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-secondary"
             >
-              {fixtures[0]?.league?.logo ? (
-                <img
-                  src={fixtures[0].league.logo}
-                  alt={leagueName}
-                  className="h-4 w-4 object-contain"
-                />
-              ) : (
-                <Trophy className="h-4 w-4 text-primary" aria-hidden="true" />
-              )}
+              <Trophy className="h-4 w-4 text-primary" aria-hidden="true" />
               <span className="flex-1">
                 <span className="block text-sm font-semibold leading-tight">{leagueName}</span>
                 <span className="block text-xs text-muted-foreground">
-                  {fixtures[0]?.league?.country ?? ""}
+                  {fixtures[0]?.competition?.area?.name ?? ""}
                 </span>
               </span>
               <ChevronDown
@@ -140,7 +131,7 @@ export function SidebarMatchList({ className }: { className?: string }) {
             {open[leagueName] && (
               <div className="space-y-0.5 pb-1">
                 {fixtures.map((fixture: any) => (
-                  <SidebarRow key={fixture.fixture.id} fixture={fixture} />
+                  <SidebarRow key={fixture.id} fixture={fixture} />
                 ))}
               </div>
             )}

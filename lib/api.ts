@@ -1,68 +1,61 @@
-const API_KEY = process.env.API_FOOTBALL_KEY!
-const BASE_URL = "https://v3.football.api-sports.io"
+const FOOTBALL_API_KEY = process.env.FOOTBALL_DATA_API_KEY!
+const BASE_URL = "https://api.football-data.org/v4"
 
 const headers = {
-  "x-apisports-key": API_KEY,
+  "X-Auth-Token": FOOTBALL_API_KEY,
 }
 
+// Get today's date in YYYY-MM-DD format
 function getTodayDate(): string {
   return new Date().toISOString().split("T")[0]
 }
 
+// Fetch today's fixtures
 export async function fetchTodayFixtures() {
   const date = getTodayDate()
-  const res = await fetch(`${BASE_URL}/fixtures?date=${date}`, {
+  const res = await fetch(`${BASE_URL}/matches?date=${date}`, {
     headers,
     next: { revalidate: 60 },
   })
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   const data = await res.json()
-  return data.response
+  return data.matches ?? []
 }
 
-export async function fetchLiveFixtures() {
-  const res = await fetch(`${BASE_URL}/fixtures?live=all`, {
-    headers,
-    next: { revalidate: 30 },
-  })
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
-  const data = await res.json()
-  return data.response
-}
-
+// Fetch fixture by ID
 export async function fetchFixtureById(id: string) {
-  const res = await fetch(`${BASE_URL}/fixtures?id=${id}`, {
+  const res = await fetch(`${BASE_URL}/matches/${id}`, {
     headers,
     next: { revalidate: 60 },
   })
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   const data = await res.json()
-  return data.response[0]
+  return data
 }
 
-export async function fetchStandings(leagueId: number = 39, season: number = 2025) {
-  const res = await fetch(
-    `${BASE_URL}/standings?league=${leagueId}&season=${season}`,
-    {
-      headers,
-      next: { revalidate: 3600 },
-    }
-  )
+// Fetch standings for a competition
+export async function fetchStandings(competitionCode: string = "PL") {
+  const res = await fetch(`${BASE_URL}/competitions/${competitionCode}/standings`, {
+    headers,
+    next: { revalidate: 3600 },
+  })
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   const data = await res.json()
-  return data.response[0]?.league?.standings[0] ?? []
+  return data.standings?.[0]?.table ?? []
 }
 
+// Group fixtures by competition
 export function groupFixturesByLeague(fixtures: any[]) {
   const grouped: Record<string, any[]> = {}
   for (const fixture of fixtures) {
-    const leagueName = fixture.league.name
+    const leagueName = fixture.competition?.name ?? "Unknown"
     if (!grouped[leagueName]) grouped[leagueName] = []
     grouped[leagueName].push(fixture)
   }
   return grouped
 }
 
+// Format kickoff time in Lagos timezone
 export function formatKickoffTime(dateStr: string): string {
   const date = new Date(dateStr)
   return date.toLocaleTimeString("en-GB", {
@@ -72,12 +65,15 @@ export function formatKickoffTime(dateStr: string): string {
   })
 }
 
+// Get fixture status
 export function getFixtureStatus(fixture: any): string {
-  const status = fixture.fixture.status.short
-  const elapsed = fixture.fixture.status.elapsed
-  if (status === "1H" || status === "2H" || status === "ET") return `LIVE ${elapsed}'`
-  if (status === "HT") return "HT"
-  if (status === "FT") return "FT"
-  if (status === "NS") return formatKickoffTime(fixture.fixture.date)
+  const status = fixture.status
+  const elapsed = fixture.minute
+
+  if (status === "IN_PLAY" || status === "PAUSED") return `${elapsed ?? 0}'`
+  if (status === "FINISHED") return "FT"
+  if (status === "TIMED" || status === "SCHEDULED") {
+    return formatKickoffTime(fixture.utcDate)
+  }
   return status
 }

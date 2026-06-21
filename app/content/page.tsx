@@ -79,8 +79,13 @@ export default function ContentPage() {
   useEffect(() => {
     async function load() {
       try {
+        // Use yesterday's date to get matches when quota is low
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        const date = yesterday.toISOString().split("T")[0]
+
         const res = await fetch(
-          `https://v3.football.api-sports.io/fixtures?date=${new Date().toISOString().split("T")[0]}`,
+          `https://v3.football.api-sports.io/fixtures?date=${date}`,
           { headers: { "x-apisports-key": process.env.NEXT_PUBLIC_API_FOOTBALL_KEY! } }
         )
         const data = await res.json()
