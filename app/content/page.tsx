@@ -79,17 +79,13 @@ export default function ContentPage() {
   useEffect(() => {
     async function load() {
       try {
-        // Use yesterday's date to get matches when quota is low
-        const yesterday = new Date()
-        yesterday.setDate(yesterday.getDate() - 1)
-        const date = yesterday.toISOString().split("T")[0]
-
+        const date = new Date().toISOString().split("T")[0]
         const res = await fetch(
-          `https://v3.football.api-sports.io/fixtures?date=${date}`,
-          { headers: { "x-apisports-key": process.env.NEXT_PUBLIC_API_FOOTBALL_KEY! } }
+          `https://api.football-data.org/v4/matches?date=${date}`,
+          { headers: { "X-Auth-Token": process.env.NEXT_PUBLIC_FOOTBALL_DATA_API_KEY! } }
         )
         const data = await res.json()
-        setFixtures(data.response?.slice(0, 10) ?? [])
+        setFixtures(data.matches?.slice(0, 10) ?? [])
       } catch (e) {
         console.error("Failed to load fixtures")
       }
@@ -98,16 +94,16 @@ export default function ContentPage() {
   }, [])
 
   async function postToX(fixture: any, homeWin: number, draw: number, awayWin: number, confidence: number, score: string) {
-    const id = fixture.fixture.id
+    const id = fixture.id
     setPosting((p) => ({ ...p, [id]: true }))
     try {
       const res = await fetch("/api/post-to-x", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          homeTeam: fixture.teams.home.name,
-          awayTeam: fixture.teams.away.name,
-          league: fixture.league.name,
+          homeTeam: fixture.homeTeam?.name,
+          awayTeam: fixture.awayTeam?.name,
+          league: fixture.competition?.name,
           confidence,
           homeWin,
           draw,
@@ -148,26 +144,30 @@ export default function ContentPage() {
 
         <div className="space-y-8">
           {fixtures.map((fixture: any) => {
-            const home = fixture.teams.home.name
-            const away = fixture.teams.away.name
-            const league = fixture.league.name
+            const home = fixture.homeTeam?.name ?? "Home"
+            const away = fixture.awayTeam?.name ?? "Away"
+            const league = fixture.competition?.name ?? "Football"
             const confidence = Math.floor(Math.random() * 30) + 60
             const homeWin = Math.floor(Math.random() * 40) + 35
             const draw = Math.floor(Math.random() * 20) + 15
             const awayWin = 100 - homeWin - draw
             const pick = homeWin > awayWin ? "home" : awayWin > homeWin ? "away" : "draw"
             const score = `${Math.floor(Math.random() * 3)}-${Math.floor(Math.random() * 2)}`
-            const id = fixture.fixture.id
+            const id = fixture.id
 
             return (
               <div key={id} className="rounded-2xl border border-border bg-card overflow-hidden">
                 <div className="flex items-center gap-4 border-b border-border bg-secondary/50 px-6 py-4">
-                  <img src={fixture.teams.home.logo} alt={home} className="h-8 w-8 object-contain" />
+                  {fixture.homeTeam?.crest && (
+                    <img src={fixture.homeTeam.crest} alt={home} className="h-8 w-8 object-contain" />
+                  )}
                   <div>
                     <h2 className="font-bold">{home} vs {away}</h2>
                     <p className="text-xs text-muted-foreground">{league} • {confidence}% Confidence • Predicted: {score}</p>
                   </div>
-                  <img src={fixture.teams.away.logo} alt={away} className="h-8 w-8 object-contain ml-auto" />
+                  {fixture.awayTeam?.crest && (
+                    <img src={fixture.awayTeam.crest} alt={away} className="h-8 w-8 object-contain ml-auto" />
+                  )}
                 </div>
 
                 <div className="p-6 space-y-6">
