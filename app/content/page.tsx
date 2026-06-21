@@ -1,11 +1,6 @@
-import type { Metadata } from 'next'
+"use client"
+import { useState, useEffect } from "react"
 import { TopNav } from "@/components/layout/top-nav"
-import { fetchTodayFixtures } from "@/lib/api"
-
-export const metadata: Metadata = {
-  title: 'Content Pipeline — YouTube Shorts & Social Media',
-  description: 'Auto-generate YouTube Shorts scripts, X posts and TikTok captions from AI football predictions.',
-}
 
 function generateYouTubeScript(home: string, away: string, league: string, confidence: number, pick: string, score: string): string {
   return `YOUTUBE SHORTS SCRIPT (60 seconds)
@@ -33,14 +28,14 @@ function generateXPost(home: string, away: string, confidence: number, pick: str
 
 ${home} vs ${away}
 
-${pick === 'home' ? 'YES' : 'NO'} ${home} Win: ${homeWin}%
-${pick === 'draw' ? 'YES' : 'NO'} Draw: ${draw}%
-${pick === 'away' ? 'YES' : 'NO'} ${away} Win: ${awayWin}%
+${homeWin > awayWin ? "YES" : "NO"} ${home} Win: ${homeWin}%
+${draw >= homeWin && draw >= awayWin ? "YES" : "NO"} Draw: ${draw}%
+${awayWin > homeWin ? "YES" : "NO"} ${away} Win: ${awayWin}%
 
 Predicted Score: ${score}
 Confidence: ${confidence}%
 
-Full AI analysis at predictpro-ai.vercel.app
+Full analysis at predictpro-frontend.vercel.app
 
 #FootballPredictions #AI #Football`
 }
@@ -76,14 +71,57 @@ Win Probability:
 Read on for the full AI analysis, key factors, team form and our expert verdict.`
 }
 
-export default async function ContentPage() {
-  let fixtures: any[] = []
+export default function ContentPage() {
+  const [fixtures, setFixtures] = useState<any[]>([])
+  const [posting, setPosting] = useState<Record<string, boolean>>({})
+  const [posted, setPosted] = useState<Record<string, boolean>>({})
 
-  try {
-    const all = await fetchTodayFixtures()
-    fixtures = all.slice(0, 10)
-  } catch (e) {
-    console.error("Failed to load fixtures")
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch(
+          `https://v3.football.api-sports.io/fixtures?date=${new Date().toISOString().split("T")[0]}`,
+          { headers: { "x-apisports-key": process.env.NEXT_PUBLIC_API_FOOTBALL_KEY! } }
+        )
+        const data = await res.json()
+        setFixtures(data.response?.slice(0, 10) ?? [])
+      } catch (e) {
+        console.error("Failed to load fixtures")
+      }
+    }
+    load()
+  }, [])
+
+  async function postToX(fixture: any, homeWin: number, draw: number, awayWin: number, confidence: number, score: string) {
+    const id = fixture.fixture.id
+    setPosting((p) => ({ ...p, [id]: true }))
+    try {
+      const res = await fetch("/api/post-to-x", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          homeTeam: fixture.teams.home.name,
+          awayTeam: fixture.teams.away.name,
+          league: fixture.league.name,
+          confidence,
+          homeWin,
+          draw,
+          awayWin,
+          predictedScore: score.split("-").map(Number),
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setPosted((p) => ({ ...p, [id]: true }))
+        alert("Posted to X successfully!")
+      } else {
+        alert("Failed to post: " + data.error)
+      }
+    } catch (e) {
+      alert("Error posting to X")
+    } finally {
+      setPosting((p) => ({ ...p, [id]: false }))
+    }
   }
 
   return (
@@ -114,9 +152,10 @@ export default async function ContentPage() {
             const awayWin = 100 - homeWin - draw
             const pick = homeWin > awayWin ? "home" : awayWin > homeWin ? "away" : "draw"
             const score = `${Math.floor(Math.random() * 3)}-${Math.floor(Math.random() * 2)}`
+            const id = fixture.fixture.id
 
             return (
-              <div key={fixture.fixture.id} className="rounded-2xl border border-border bg-card overflow-hidden">
+              <div key={id} className="rounded-2xl border border-border bg-card overflow-hidden">
                 <div className="flex items-center gap-4 border-b border-border bg-secondary/50 px-6 py-4">
                   <img src={fixture.teams.home.logo} alt={home} className="h-8 w-8 object-contain" />
                   <div>
@@ -138,9 +177,24 @@ export default async function ContentPage() {
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded bg-black text-white text-xs font-bold">X</span>
-                      <h3 className="font-semibold text-sm">X / Twitter Post</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded bg-black text-white text-xs font-bold">X</span>
+                        <h3 className="font-semibold text-sm">X / Twitter Post</h3>
+                      </div>
+                      <button
+                        onClick={() => postToX(fixture, homeWin, draw, awayWin, confidence, score)}
+                        disabled={posting[id] || posted[id]}
+                        className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                          posted[id]
+                            ? "bg-green-500 text-white"
+                            : posting[id]
+                            ? "bg-secondary text-muted-foreground"
+                            : "bg-black text-white hover:bg-black/80"
+                        }`}
+                      >
+                        {posted[id] ? "Posted!" : posting[id] ? "Posting..." : "Post to X"}
+                      </button>
                     </div>
                     <pre className="whitespace-pre-wrap rounded-xl bg-secondary p-4 text-xs text-muted-foreground font-mono leading-relaxed">
                       {generateXPost(home, away, confidence, pick, score, homeWin, draw, awayWin)}
