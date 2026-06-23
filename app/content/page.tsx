@@ -75,19 +75,18 @@ export default function ContentPage() {
   const [fixtures, setFixtures] = useState<any[]>([])
   const [posting, setPosting] = useState<Record<string, boolean>>({})
   const [posted, setPosted] = useState<Record<string, boolean>>({})
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const date = new Date().toISOString().split("T")[0]
-        const res = await fetch(
-          `https://api.football-data.org/v4/matches?date=${date}`,
-          { headers: { "X-Auth-Token": process.env.NEXT_PUBLIC_FOOTBALL_DATA_API_KEY! } }
-        )
+        const res = await fetch("/api/fixtures")
         const data = await res.json()
-        setFixtures(data.matches?.slice(0, 10) ?? [])
+        setFixtures(data.slice(0, 10))
       } catch (e) {
-        console.error("Failed to load fixtures")
+        console.error("Failed to load fixtures", e)
+      } finally {
+        setLoading(false)
       }
     }
     load()
@@ -136,7 +135,13 @@ export default function ContentPage() {
           </p>
         </div>
 
-        {fixtures.length === 0 && (
+        {loading && (
+          <p className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+            Loading fixtures...
+          </p>
+        )}
+
+        {!loading && fixtures.length === 0 && (
           <p className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
             No fixtures available. Check back later.
           </p>
