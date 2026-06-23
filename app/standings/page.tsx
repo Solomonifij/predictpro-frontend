@@ -1,6 +1,12 @@
+import type { Metadata } from 'next'
 import { TopNav } from "@/components/layout/top-nav"
 import { SidebarMatchList } from "@/components/layout/sidebar-match-list"
 import { StandingsView } from "@/components/standings/standings-view"
+
+export const metadata: Metadata = {
+  title: 'League Standings',
+  description: 'Live Premier League, Champions League and World Cup standings with AI-projected final points.',
+}
 
 export default function StandingsPage() {
   return (
